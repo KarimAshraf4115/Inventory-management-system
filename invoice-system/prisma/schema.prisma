@@ -1,0 +1,184 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlserver"
+}
+
+model Supplier {
+  supplierId       Int       @id @default(autoincrement()) @map("supplier_id")
+  name             String    @map("name") @db.NVarChar(255)
+  phoneNum         String?   @unique @map("Phone-Num") @db.NVarChar(50)
+  type             String?   @map("Type") @db.NVarChar(50) // "factory" or "office"
+  //relationships
+  purchaseInvoices Invoice[] @relation("SupplierInvoices")
+  returns          Return[]  @relation("SupplierReturns")
+
+  @@map("Suppliers")
+}
+
+model Customer {
+  customerId   Int       @id @default(autoincrement()) @map("Customer_id")
+  name         String    @map("Name") @db.NVarChar(255)
+  phoneNum     String?   @unique @map("Phone_Num") @db.NVarChar(50)
+  //relationships
+  saleInvoices Invoice[] @relation("CustomerInvoices")
+  returns      Return[]  @relation("CustomerReturns")
+
+  @@map("Customers")
+}
+
+model Item {
+  itemId          Int             @id @default(autoincrement()) @map("Item_Id")
+  code            String          @unique @map("Code") @db.NVarChar(255)
+  name            String          @map("Name") @db.NVarChar(255)
+  purchasePrice   Decimal         @map("Purchas_Price") @db.Decimal(18, 2)
+  salePrice       Decimal         @map("Sale-Price") @db.Decimal(18, 2)
+  currentQuantity Int             @default(0) @map("Current_Quantity")
+  //relationships
+  invoiceTerms    InvoiceTerm[]
+  returnItems     ReturnItem[]
+  stockMovements  StockMovement[]
+
+  @@map("Items")
+}
+
+model Invoice {
+  invoiceId  Int    @id @default(autoincrement()) @map("Invoice_Id")
+  invoiceNum String @unique @map("Invoice_Num") @db.NVarChar(100)
+
+  // sale || purchase
+  invoiceType String @map("Invoice_Type") @db.NVarChar(50)
+
+  customerId Int? @map("Customer_Id")
+  supplierId Int? @map("Supplier_Id")
+
+  invoiceDate    DateTime        @map("Invoice_Date") @db.DateTime2
+  // relationships
+  customer       Customer?       @relation("CustomerInvoices", fields: [customerId], references: [customerId])
+  supplier       Supplier?       @relation("SupplierInvoices", fields: [supplierId], references: [supplierId])
+  invoiceTerms   InvoiceTerm[]
+  payments       Payment[]
+  returns        Return[]
+  stockMovements StockMovement[]
+
+  @@index([customerId])
+  @@index([supplierId])
+  @@index([invoiceDate])
+  @@map("Invoices")
+}
+
+model InvoiceTerm {
+  invoiceId Int @map("Invoice_Id")
+  itemId    Int @map("Item_Id")
+
+  quantity Int     @map("Quantity")
+  price    Decimal @map("Price") @db.Decimal(18, 2)
+  //relationships
+  invoice  Invoice @relation(fields: [invoiceId], references: [invoiceId], onDelete: Cascade)
+  item     Item    @relation(fields: [itemId], references: [itemId])
+
+  @@id([invoiceId, itemId])
+  @@index([itemId])
+  @@map("Invoice_Terms")
+}
+
+model Return {
+  returnId  Int @id @default(autoincrement()) @map("Return_Id")
+  invoiceId Int @map("Invoice_Id")
+  returnDate DateTime @default(now()) @map("Return_Date") @db.DateTime2
+
+  // "from_customer" or "to_supplier"
+  returnType String @map("Return_Type") @db.NVarChar(50)
+  reason     String? @map("Reason") @db.NVarChar(255)
+
+  customerId Int? @map("Customer_Id")
+  supplierId Int? @map("Supplier_Id")
+
+  // relationships
+  invoice Invoice @relation(fields: [invoiceId], references: [invoiceId], onDelete: NoAction, onUpdate: NoAction)
+
+  customer Customer? @relation("CustomerReturns", fields: [customerId], references: [customerId])
+  supplier Supplier? @relation("SupplierReturns", fields: [supplierId], references: [supplierId])
+
+  returnItems    ReturnItem[]
+  stockMovements StockMovement[]
+
+  @@index([invoiceId])
+  @@index([customerId])
+  @@index([supplierId])
+  @@map("Returns")
+}
+
+model ReturnItem {
+  returnId Int @map("Return_Id")
+  itemId   Int @map("Item_Id")
+
+  quantity Int     @map("Quantity")
+  price    Decimal @map("Price") @db.Decimal(18, 2)
+
+  //relationships
+  return Return @relation(fields: [returnId], references: [returnId], onDelete: Cascade)
+  item   Item   @relation(fields: [itemId], references: [itemId])
+
+  @@id([returnId, itemId])
+  @@index([itemId])
+  @@map("Return_Items")
+}
+
+model StockMovement {
+  movementId Int @id @default(autoincrement()) @map("Movement_Id")
+  itemId     Int @map("Item_Id")
+
+  // sale_out - purchase_in - sale_return_in - purchase_return_out
+  movementType String   @map("Movement_Type") @db.NVarChar(50)
+  quantity     Int      @map("Quantity")
+  movementDate DateTime @map("Movement_Date") @db.DateTime2
+
+  invoiceId Int? @map("Invoice_Id")
+  returnId  Int? @map("Return_Id")
+
+  // relationships
+  item    Item     @relation(fields: [itemId], references: [itemId], onDelete: NoAction, onUpdate: NoAction)
+  invoice Invoice? @relation(fields: [invoiceId], references: [invoiceId], onDelete: NoAction, onUpdate: NoAction)
+  return  Return?  @relation(fields: [returnId], references: [returnId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([itemId])
+  @@index([invoiceId])
+  @@index([returnId])
+  @@index([movementDate])
+  @@map("Stock_Movement")
+}
+
+model Payment {
+  paymentId     Int      @id @default(autoincrement()) @map("Payment_Id")
+  invoiceId     Int      @map("Invoice_Id")
+  amount        Decimal  @map("Amount") @db.Decimal(18, 2)
+  paymentDate   DateTime @map("Payment_Date") @db.DateTime2
+  paymentMethod String   @map("Payment_Method") @db.NVarChar(50)
+  notes         String?  @map("Notes") @db.NVarChar(255)
+
+  // Relation
+  invoice Invoice @relation(fields: [invoiceId], references: [invoiceId], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("Payments")
+}
+
+model Expense {
+  expenseId   Int      @id @default(autoincrement()) @map("Expense_Id")
+  type        String   @map("Type") @db.NVarChar(255)
+  amount      Decimal  @map("Amount") @db.Decimal(18, 2)
+  expenseDate DateTime @map("Expense_Date") @db.DateTime2
+  description String?  @map("Description") @db.NVarChar(1000)
+
+  @@index([expenseDate])
+  @@map("Expenses")
+}
