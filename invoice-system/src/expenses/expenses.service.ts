@@ -12,8 +12,8 @@ export class ExpensesService {
       where: search
         ? {
             OR: [
-              { type: { contains: search } },
-              { description: { contains: search } },
+              { type: { contains: search , mode: 'insensitive'} },
+              { description: { contains: search , mode: 'insensitive'} },
             ],
           }
         : undefined,

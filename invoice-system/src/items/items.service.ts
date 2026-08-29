@@ -19,8 +19,8 @@ export class ItemsService {
       where: search
         ? {
             OR: [
-              { code: { contains: search } },
-              { name: { contains: search } },
+              { code: { contains: search , mode: 'insensitive'} },
+              { name: { contains: search , mode: 'insensitive'} },
             ],
           }
         : undefined,

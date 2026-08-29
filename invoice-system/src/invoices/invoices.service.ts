@@ -152,7 +152,7 @@ export class InvoicesService {
 
     const invoices = await this.prisma.invoice.findMany({
       where: {
-        invoiceNum: invoiceNum ? { contains: invoiceNum } : undefined,
+        invoiceNum: invoiceNum ? { contains: invoiceNum , mode: 'insensitive' } : undefined,
         invoiceType: invoiceType || undefined,
         invoiceDate: {
           gte: from ? new Date(from) : undefined,

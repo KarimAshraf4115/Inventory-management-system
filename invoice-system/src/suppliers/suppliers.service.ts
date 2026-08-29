@@ -18,8 +18,8 @@ export class SuppliersService {
       where: search
         ? {
             OR: [
-              { name: { contains: search } },
-              { phoneNum: { contains: search } },
+              { name: { contains: search , mode: 'insensitive'} },
+              { phoneNum: { contains: search , mode: 'insensitive'} },
             ],
           }
         : undefined,
