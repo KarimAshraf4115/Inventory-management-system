@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  font-family: 'Cairo', 'Noto Kufi Arabic', sans-serif;
+}
+
+body {
+  background-color: #fafbfc;
+  color: #1c2430;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Thin scrollbar */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #c7cdd6;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #a9b2bf;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Number inputs: hide spinners for cleaner look */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Date input alignment for RTL */
+input[type='date'] {
+  text-align: right;
+}
+
+@layer components {
+  .input-base {
+    @apply w-full rounded-lg border border-line2 bg-white px-3 py-2 text-sm text-ink placeholder:text-gray-400 outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-600/15;
+  }
+  .label-base {
+    @apply mb-1.5 block text-xs font-semibold text-gray-500;
+  }
+}
