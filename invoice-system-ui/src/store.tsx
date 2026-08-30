@@ -110,9 +110,11 @@ interface Store {
 
   addInvoice: (inv: Omit<Invoice, "id" | "number">) => Promise<Invoice>;
   addPayment: (p: Omit<Payment, "id">) => void;
-  addReturn: (r: Omit<ReturnRecord, "id" | "number">) => void;
+  addReturn: (r: Omit<ReturnRecord, "id" | "number">) => Promise<void>;
   addExpense: (e: Omit<Expense, "id">) => void;
   deleteExpense: (id: string) => void;
+
+  getInvoiceDetail: (id: string) => Promise<Invoice>;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -197,7 +199,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         api
           .post("/customers", mapPartyToApi(p))
           .then((created) => {
-            setCustomers((prev) => [...prev, mapPartyFromApi(created, "customer")]);
+            setCustomers((prev) => [
+              ...prev,
+              mapPartyFromApi(created, "customer"),
+            ]);
           })
           .catch((err) => alert(err.message));
       },
@@ -207,7 +212,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .put(`/customers/${id}`, mapPartyToApi({ ...current, ...patch }))
           .then((updated) => {
             setCustomers((prev) =>
-              prev.map((c) => (c.id === id ? mapPartyFromApi(updated, "customer") : c)),
+              prev.map((c) =>
+                c.id === id ? mapPartyFromApi(updated, "customer") : c,
+              ),
             );
           })
           .catch((err) => alert(err.message));
@@ -225,7 +232,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         api
           .post("/suppliers", mapPartyToApi(p))
           .then((created) => {
-            setSuppliers((prev) => [...prev, mapPartyFromApi(created, "supplier")]);
+            setSuppliers((prev) => [
+              ...prev,
+              mapPartyFromApi(created, "supplier"),
+            ]);
           })
           .catch((err) => alert(err.message));
       },
@@ -235,7 +245,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .put(`/suppliers/${id}`, mapPartyToApi({ ...current, ...patch }))
           .then((updated) => {
             setSuppliers((prev) =>
-              prev.map((s) => (s.id === id ? mapPartyFromApi(updated, "supplier") : s)),
+              prev.map((s) =>
+                s.id === id ? mapPartyFromApi(updated, "supplier") : s,
+              ),
             );
           })
           .catch((err) => alert(err.message));
@@ -247,6 +259,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             setSuppliers((prev) => prev.filter((s) => s.id !== id));
           })
           .catch((err) => alert(err.message));
+      },
+
+      getInvoiceDetail: async (id: string) => {
+        const data = await api.get(`/invoices/${id}`);
+        return {
+          id: String(data.invoiceId),
+          number: data.invoiceNum,
+          type: data.invoiceType,
+          partyId: String(data.customerId ?? data.supplierId ?? ""),
+          date: data.invoiceDate,
+          lines: data.invoiceTerms.map((t: any) => ({
+            id: `${t.invoiceId}-${t.itemId}`,
+            itemId: String(t.itemId),
+            qty: t.quantity,
+            price: Number(t.price),
+          })),
+          initialPaid: 0,
+          total: data.derivedInvoiceTotal,
+          paid: data.derivedAmountPaid,
+          remaining: data.derivedOutstandingBalance,
+        };
       },
 
       addInvoice: async (inv) => {
@@ -318,27 +351,65 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      addReturn: (r) => {
-        const id = nextId("r");
-        const number = nextNumber("R-", 3);
-        setReturns((prev) => [{ ...r, id, number }, ...prev]);
-        r.lines.forEach((ln) => {
-          setItems((prev) =>
-            prev.map((it) =>
-              it.id === ln.itemId
-                ? { ...it, quantity: it.quantity + ln.qty }
-                : it,
-            ),
+      addReturn: async (r) => {
+        const originalInvoice = invoices.find(
+          (i) => i.id === r.originalInvoiceId,
+        );
+        if (!originalInvoice) throw new Error("Original invoice not found");
+
+        const returnType =
+          originalInvoice.type === "sale" ? "from_customer" : "to_supplier";
+
+        const payload = {
+          invoiceId: Number(r.originalInvoiceId),
+          returnType,
+          ...(returnType === "from_customer"
+            ? { customerId: Number(originalInvoice.partyId) }
+            : { supplierId: Number(originalInvoice.partyId) }),
+          reason: r.reason,
+          items: r.lines.map((l) => ({
+            itemId: Number(l.itemId),
+            quantity: l.qty,
+            price: l.price,
+          })),
+        };
+
+        await api.post("/returns", payload);
+
+        // Refresh everything the return could have affected
+        const [freshReturns, freshItems, freshInvoices] = await Promise.all([
+          api.get("/returns"),
+          api.get("/items"),
+          api.get("/invoices"),
+        ]);
+        setReturns(
+          freshReturns.map((rr: any) => ({
+            id: String(rr.returnId),
+            number: `R-${rr.returnId}`,
+            originalInvoiceId: String(rr.invoiceId),
+            date: rr.returnDate,
+            reason: rr.reason ?? "",
+            lines: (rr.returnItems ?? []).map((ri: any) => ({
+              itemId: String(ri.itemId),
+              qty: ri.quantity,
+              price: Number(ri.price),
+            })),
+          })),
+        );
+        setItems(freshItems.map(mapItemFromApi));
+        setInvoices(freshInvoices.map(mapInvoiceFromApi));
+
+        if (originalInvoice.type === "sale") {
+          const freshCustomers = await api.get("/customers");
+          setCustomers(
+            freshCustomers.map((c: any) => mapPartyFromApi(c, "customer")),
           );
-          pushMovement({
-            itemId: ln.itemId,
-            direction: "in",
-            refType: "return",
-            refId: id,
-            qty: ln.qty,
-            date: r.date,
-          });
-        });
+        } else {
+          const freshSuppliers = await api.get("/suppliers");
+          setSuppliers(
+            freshSuppliers.map((s: any) => mapPartyFromApi(s, "supplier")),
+          );
+        }
       },
 
       addExpense: (e) =>
@@ -373,16 +444,17 @@ export function useStore() {
 export const lineTotal = (l: InvoiceLine) => l.qty * l.price;
 
 export const invoiceTotal = (inv: Invoice) =>
-  inv.lines.reduce((s, l) => s + lineTotal(l), 0);
+  inv.total ?? inv.lines.reduce((s, l) => s + lineTotal(l), 0);
 
 export const invoicePaid = (inv: Invoice, allPayments: Payment[]) =>
+  inv.paid ??
   inv.initialPaid +
-  allPayments
-    .filter((p) => p.invoiceId === inv.id)
-    .reduce((s, p) => s + p.amount, 0);
+    allPayments
+      .filter((p) => p.invoiceId === inv.id)
+      .reduce((s, p) => s + p.amount, 0);
 
 export const invoiceRemaining = (inv: Invoice, allPayments: Payment[]) =>
-  invoiceTotal(inv) - invoicePaid(inv, allPayments);
+  inv.remaining ?? invoiceTotal(inv) - invoicePaid(inv, allPayments);
 
 export const invoiceStatus = (inv: Invoice, allPayments: Payment[]) => {
   const r = invoiceRemaining(inv, allPayments);
