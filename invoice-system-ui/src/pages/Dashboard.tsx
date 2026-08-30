@@ -22,21 +22,13 @@ interface Props {
 }
 
 export function Dashboard({ onNavigate }: Props) {
-  const { items, customers, suppliers, invoices, payments } = useStore();
-
-  const today = new Date().toISOString().slice(0, 10);
-  const todaySales = invoices
-    .filter((i) => i.type === 'sale' && i.date === today)
-    .reduce((s, i) => s + invoiceTotal(i), 0);
-
-  const inventoryValue = items.reduce(
-    (s, it) => s + it.quantity * it.purchasePrice,
-    0,
-  );
+  const { items, customers, suppliers, invoices, payments, dashboardSummary } = useStore();
 
   const lowStock = items.filter((it) => it.quantity <= it.minQuantity);
 
-  const outstanding = customers.reduce((s, c) => s + (c.balance > 0 ? c.balance : 0), 0);
+  const todaySales = dashboardSummary?.todaysSales ?? 0;
+  const inventoryValue = dashboardSummary?.stockValue ?? 0;
+  const outstanding = dashboardSummary?.totalReceivable ?? 0;
 
   const cards = [
     {

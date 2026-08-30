@@ -152,7 +152,9 @@ export class InvoicesService {
 
     const invoices = await this.prisma.invoice.findMany({
       where: {
-        invoiceNum: invoiceNum ? { contains: invoiceNum , mode: 'insensitive' } : undefined,
+        invoiceNum: invoiceNum
+          ? { contains: invoiceNum, mode: 'insensitive' }
+          : undefined,
         invoiceType: invoiceType || undefined,
         invoiceDate: {
           gte: from ? new Date(from) : undefined,
@@ -170,10 +172,18 @@ export class InvoicesService {
     });
 
     return invoices.map((inv) => {
-      const total = inv.invoiceTerms.reduce((s, t) => s + Number(t.price) * t.quantity, 0);
+      const total = inv.invoiceTerms.reduce(
+        (s, t) => s + Number(t.price) * t.quantity,
+        0,
+      );
       const paid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
       const returned = inv.returns.reduce(
-        (s, r) => s + r.returnItems.reduce((rs, ri) => rs + Number(ri.price) * ri.quantity, 0),
+        (s, r) =>
+          s +
+          r.returnItems.reduce(
+            (rs, ri) => rs + Number(ri.price) * ri.quantity,
+            0,
+          ),
         0,
       );
       const remaining = total - returned - paid;
@@ -188,6 +198,8 @@ export class InvoicesService {
         invoiceNum: inv.invoiceNum,
         invoiceType: inv.invoiceType,
         invoiceDate: inv.invoiceDate,
+        customerId: inv.customerId,
+        supplierId: inv.supplierId,
         partyName: inv.customer?.name ?? inv.supplier?.name ?? null,
         total,
         paid,

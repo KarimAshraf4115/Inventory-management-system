@@ -86,6 +86,40 @@ function mapInvoiceFromApi(apiInvoice: any): Invoice {
   };
 }
 
+function mapExpenseFromApi(apiExpense: any): Expense {
+  return {
+    id: String(apiExpense.expenseId),
+    date: apiExpense.expenseDate,
+    type: apiExpense.type,
+    amount: Number(apiExpense.amount),
+    description: apiExpense.description ?? "",
+  };
+}
+
+function mapMovementFromApi(apiMovement: any): StockMovement {
+  const outTypes = ["sale_out", "purchase_return_out"];
+  return {
+    id: String(apiMovement.movementId),
+    itemId: String(apiMovement.itemId),
+    direction: outTypes.includes(apiMovement.movementType) ? "out" : "in",
+    refType: apiMovement.invoiceId
+      ? "invoice"
+      : apiMovement.returnId
+        ? "return"
+        : "adjustment",
+    refId: String(apiMovement.invoiceId ?? apiMovement.returnId ?? ""),
+    qty: apiMovement.quantity,
+    date: apiMovement.movementDate,
+  };
+}
+
+interface DashboardSummary {
+  todaysSales: number;
+  stockValue: number;
+  lowStockCount: number;
+  totalReceivable: number;
+}
+
 interface Store {
   items: Item[];
   customers: Party[];
@@ -95,6 +129,7 @@ interface Store {
   returns: ReturnRecord[];
   expenses: Expense[];
   movements: StockMovement[];
+  dashboardSummary: DashboardSummary | null;
 
   addItem: (i: Omit<Item, "id">) => void;
   updateItem: (id: string, patch: Partial<Item>) => void;
@@ -109,12 +144,13 @@ interface Store {
   deleteSupplier: (id: string) => void;
 
   addInvoice: (inv: Omit<Invoice, "id" | "number">) => Promise<Invoice>;
-  addPayment: (p: Omit<Payment, "id">) => void;
+  addPayment: (p: Omit<Payment, "id">) => Promise<void>;
   addReturn: (r: Omit<ReturnRecord, "id" | "number">) => Promise<void>;
-  addExpense: (e: Omit<Expense, "id">) => void;
-  deleteExpense: (id: string) => void;
+  addExpense: (e: Omit<Expense, "id">) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
 
   getInvoiceDetail: (id: string) => Promise<Invoice>;
+  
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -131,10 +167,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [customers, setCustomers] = useState<Party[]>([]);
   const [suppliers, setSuppliers] = useState<Party[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [payments, setPayments] = useState<Payment[]>(seedPayments);
-  const [returns, setReturns] = useState<ReturnRecord[]>(seedReturns);
-  const [expenses, setExpenses] = useState<Expense[]>(seedExpenses);
-  const [movements, setMovements] = useState<StockMovement[]>(seedMovements);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [returns, setReturns] = useState<ReturnRecord[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [dashboardSummary, setDashboardSummary] = useState<{
+    todaysSales: number;
+    stockValue: number;
+    lowStockCount: number;
+    totalReceivable: number;
+  } | null>(null);
 
   useEffect(() => {
     api.get("/items").then((data) => setItems(data.map(mapItemFromApi)));
@@ -151,10 +193,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     api
       .get("/invoices")
       .then((data) => setInvoices(data.map(mapInvoiceFromApi)));
+    api.get("/returns").then((data) =>
+      setReturns(
+        data.map((rr: any) => ({
+          id: String(rr.returnId),
+          number: `R-${rr.returnId}`,
+          originalInvoiceId: String(rr.invoiceId),
+          date: rr.returnDate,
+          reason: rr.reason ?? "",
+          lines: (rr.returnItems ?? []).map((ri: any) => ({
+            itemId: String(ri.itemId),
+            qty: ri.quantity,
+            price: Number(ri.price),
+          })),
+        })),
+      ),
+    );
+    api.get("/payments").then((data) =>
+      setPayments(
+        data.map((pay: any) => ({
+          id: String(pay.paymentId),
+          invoiceId: String(pay.invoiceId),
+          amount: Number(pay.amount),
+          date: pay.paymentDate,
+          method: pay.paymentMethod,
+          notes: pay.notes ?? "",
+        })),
+      ),
+    );
+    api
+      .get("/expenses")
+      .then((data) => setExpenses(data.map(mapExpenseFromApi)));
+    api
+      .get("/stock-movements")
+      .then((data) => setMovements(data.map(mapMovementFromApi)));
+    api.get("/dashboard/summary").then(setDashboardSummary);
   }, []);
-
-  const pushMovement = (m: Omit<StockMovement, "id">) =>
-    setMovements((prev) => [...prev, { ...m, id: nextId("m") }]);
 
   const value = useMemo<Store>(
     () => ({
@@ -166,6 +240,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       returns,
       expenses,
       movements,
+      dashboardSummary,
 
       addItem: (i) => {
         api.post("/items", mapItemToApi(i)).then((created) => {
@@ -308,7 +383,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        // Refresh everything the invoice could have affected
         const [freshInvoices, freshItems] = await Promise.all([
           api.get("/invoices"),
           api.get("/items"),
@@ -334,19 +408,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return mapInvoiceFromApi(match ?? created);
       },
 
-      addPayment: (p) => {
-        setPayments((prev) => [...prev, { ...p, id: nextId("p") }]);
-        // reduce invoice's party balance
+      addPayment: async (p) => {
         const inv = invoices.find((i) => i.id === p.invoiceId);
-        if (inv) {
-          const setParty = inv.type === "sale" ? setCustomers : setSuppliers;
-          const delta = inv.type === "sale" ? -p.amount : p.amount;
-          setParty((prev) =>
-            prev.map((pt) =>
-              pt.id === inv.partyId
-                ? { ...pt, balance: pt.balance + delta }
-                : pt,
-            ),
+        if (!inv) throw new Error("Invoice not found");
+
+        await api.post("/payments", {
+          invoiceId: Number(p.invoiceId),
+          amount: p.amount,
+          paymentDate: new Date(p.date).toISOString(),
+          paymentMethod: p.method,
+          notes: p.notes,
+        });
+
+        const freshInvoices = await api.get("/invoices");
+        setInvoices(freshInvoices.map(mapInvoiceFromApi));
+
+        const invoiceDetail = await api.get(`/invoices/${p.invoiceId}`);
+        setPayments((prev) => [
+          ...prev.filter((pay) => pay.invoiceId !== p.invoiceId),
+          ...invoiceDetail.payments.map((pay: any) => ({
+            id: String(pay.paymentId),
+            invoiceId: String(pay.invoiceId),
+            amount: Number(pay.amount),
+            date: pay.paymentDate,
+            method: pay.paymentMethod,
+            notes: pay.notes ?? "",
+          })),
+        ]);
+
+        if (inv.type === "sale") {
+          const freshCustomers = await api.get("/customers");
+          setCustomers(
+            freshCustomers.map((c: any) => mapPartyFromApi(c, "customer")),
+          );
+        } else {
+          const freshSuppliers = await api.get("/suppliers");
+          setSuppliers(
+            freshSuppliers.map((s: any) => mapPartyFromApi(s, "supplier")),
           );
         }
       },
@@ -376,7 +474,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         await api.post("/returns", payload);
 
-        // Refresh everything the return could have affected
         const [freshReturns, freshItems, freshInvoices] = await Promise.all([
           api.get("/returns"),
           api.get("/items"),
@@ -412,10 +509,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      addExpense: (e) =>
-        setExpenses((prev) => [{ ...e, id: nextId("e") }, ...prev]),
-      deleteExpense: (id) =>
-        setExpenses((prev) => prev.filter((e) => e.id !== id)),
+      addExpense: async (e) => {
+        const created = await api.post("/expenses", {
+          type: e.type,
+          amount: e.amount,
+          description: e.description,
+        });
+        setExpenses((prev) => [mapExpenseFromApi(created), ...prev]);
+      },
+      deleteExpense: async (id) => {
+        await api.delete(`/expenses/${id}`);
+        setExpenses((prev) => prev.filter((e) => e.id !== id));
+      },
     }),
     [
       items,
@@ -426,6 +531,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       returns,
       expenses,
       movements,
+      dashboardSummary,
     ],
   );
 
