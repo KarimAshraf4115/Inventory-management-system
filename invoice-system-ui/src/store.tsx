@@ -16,12 +16,7 @@ import type {
   ReturnRecord,
   StockMovement,
 } from "@/types";
-import {
-  seedExpenses,
-  seedMovements,
-  seedPayments,
-  seedReturns,
-} from "@/data/seed";
+
 import { api } from "./api";
 
 // Converts a backend Item into the shape the frontend expects

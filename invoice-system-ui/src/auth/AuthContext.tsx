@@ -26,7 +26,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 // بيانات الأدمن المسموح له بالدخول (يمكنك تعديلها)
 const ADMIN_CREDENTIALS = {
-  username: 'fatma',
+  username: 'Karim',
   password: '123456admin', // كلمة المرور المطلوبة
 };
 
@@ -67,9 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password === ADMIN_CREDENTIALS.password
         ) {
           const nextUser: AuthUser = {
-            name: 'Fatma Mamdouh',
+            name: 'Karim',
             role: 'مدير النظام',
-            avatarInitial: 'F',
+            avatarInitial: 'K',
             avatarUrl: user?.avatarUrl || '',
             identifier: cleanIdentifier,
           };

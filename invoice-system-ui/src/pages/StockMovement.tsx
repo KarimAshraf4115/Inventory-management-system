@@ -41,7 +41,7 @@ export function StockMovementPage() {
       <div className="mb-5 grid grid-cols-3 gap-3">
         <StatCard label="إجمالي الداخل" value={formatNum(totalIn)} icon={ArrowDownLeft} tint="emerald" />
         <StatCard label="إجمالي الخارج" value={formatNum(totalOut)} icon={ArrowUpRight} tint="rust" />
-        <StatCard label="صافي الحركة" value={formatNum(totalIn - totalOut)} icon={ArrowLeftRight} tint="navy" />
+        <StatCard label="صافي الحركة" value={formatNum(totalIn + totalOut)} icon={ArrowLeftRight} tint="navy" />
       </div>
 
       <SearchToolbar search={search} onSearch={setSearch} searchPlaceholder="بحث بكود أو اسم الصنف..." />
