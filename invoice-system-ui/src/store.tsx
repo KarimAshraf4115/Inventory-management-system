@@ -145,7 +145,6 @@ interface Store {
   deleteExpense: (id: string) => Promise<void>;
 
   getInvoiceDetail: (id: string) => Promise<Invoice>;
-  
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -400,6 +399,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const match = freshInvoices.find(
           (i: any) => i.invoiceId === created.invoiceId,
         );
+        await refreshMovementsAndSummary();
         return mapInvoiceFromApi(match ?? created);
       },
 
@@ -442,6 +442,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             freshSuppliers.map((s: any) => mapPartyFromApi(s, "supplier")),
           );
         }
+
+        await refreshMovementsAndSummary();
       },
 
       addReturn: async (r) => {
@@ -502,6 +504,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             freshSuppliers.map((s: any) => mapPartyFromApi(s, "supplier")),
           );
         }
+        
+        await refreshMovementsAndSummary();
       },
 
       addExpense: async (e) => {
@@ -529,6 +533,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       dashboardSummary,
     ],
   );
+
+  const refreshMovementsAndSummary = async () => {
+    const [freshMovements, freshSummary] = await Promise.all([
+      api.get("/stock-movements"),
+      api.get("/dashboard/summary"),
+    ]);
+    setMovements(freshMovements.map(mapMovementFromApi));
+    setDashboardSummary(freshSummary);
+  };
 
   return (
     <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
