@@ -7,7 +7,7 @@ import { formatEGP, formatDate, statusLabel, statusStyles } from '@/utils';
 import type { InvoiceType, PageKey } from '@/types';
 
 interface Props {
-  onNavigate: (p: PageKey) => void;
+  onNavigate: (p: PageKey, invoiceId?: string) => void;
 }
 
 export function InvoicesPage({ onNavigate }: Props) {
@@ -121,7 +121,7 @@ export function InvoicesPage({ onNavigate }: Props) {
               <Button
                 size="sm"
                 variant="subtle"
-                onClick={() => onNavigate('payments')}
+                onClick={() => onNavigate('payments', inv.id)}
               >
                 مدفوعات
               </Button>

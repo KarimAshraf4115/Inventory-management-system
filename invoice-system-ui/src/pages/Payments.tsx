@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Wallet, PlusCircle } from "lucide-react";
 import { useStore, invoiceTotal, invoicePaid, invoiceRemaining } from "@/store";
 import { Button, Field, PageHeader, Badge } from "@/components/ui";
@@ -6,10 +6,18 @@ import { DataTable } from "@/components/DataTable";
 import { formatEGP, formatDate, todayISO, methodLabel } from "@/utils";
 import type { PaymentMethod, Payment } from "@/types";
 
-export function PaymentsPage() {
+export function PaymentsPage({
+  initialInvoiceId,
+}: { initialInvoiceId?: string } = {}) {
   const { invoices, customers, suppliers, payments, addPayment } = useStore();
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string>(invoices[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState<string>(
+    initialInvoiceId ?? invoices[0]?.id ?? "",
+  );
+
+  useEffect(() => {
+    if (initialInvoiceId) setSelectedId(initialInvoiceId);
+  }, [initialInvoiceId]);
 
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState(todayISO());
