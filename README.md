@@ -1,23 +1,22 @@
-INVENTORY & INVOICING MANAGEMENT SYSTEM
-A Full-Stack Business Operations Platform
+# INVENTORY & INVOICING MANAGEMENT SYSTEM
 
+## A Full-Stack Business Operations Platform
 
-TABLE OF CONTENTS
------------------
-1. Overview
-2. Key Capabilities
-3. System Architecture
-4. Design Principles
-5. Technology Stack
-6. Data Model Summary
-7. Getting Started
-8. API Reference
-9. Project Structure
-10. Contributors
+## TABLE OF CONTENTS
 
+1. [Overview](#1-overview)
+2. [Key Capabilities](#2-key-capabilities)
+3. [System Architecture](#3-system-architecture)
+4. [Design Principles](#4-design-principles)
+5. [Technology Stack](#5-technology-stack)
+6. [Data Model Summary](#6-data-model-summary)
+7. [Getting Started](#7-getting-started)
+8. [API Reference](#8-api-reference)
+9. [Project Structure](#9-project-structure)
+10. [Contributors](#10-contributors)
 
-1. OVERVIEW
------------
+## 1. OVERVIEW
+
 The Inventory & Invoicing Management System is a full-stack web
 application designed to give small distribution and retail
 businesses a single, reliable source of truth for their operations,
@@ -36,57 +35,62 @@ updates inventory, logs a stock movement, and adjusts a customer's
 balance in one atomic operation, with no manual reconciliation
 required.
 
+## 2. KEY CAPABILITIES
 
-2. KEY CAPABILITIES
---------------------
+### Inventory Management
 
-Inventory Management
-  - Full product catalog with cost and sale pricing
-  - Real-time stock quantity tracking per item
-  - Automatic low-stock alerts based on configurable thresholds
-  - Complete, permanent movement history per item
+* Full product catalog with cost and sale pricing
+* Real-time stock quantity tracking per item
+* Automatic low-stock alerts based on configurable thresholds
+* Complete, permanent movement history per item
 
-Customer & Supplier Relationship Management
-  - Centralized directory of trading partners
-  - Live-calculated account balances (receivable / payable)
-  - Full transaction history per party
+### Customer & Supplier Relationship Management
 
-Invoicing
-  - Dual invoice types: Sales (to customers) and Purchases
-    (from suppliers)
-  - Multi-line invoices with per-item quantity and pricing
-  - Automatic, transactional stock and balance adjustment on save
-  - Enforced data integrity (an invoice must belong to exactly one
-    customer or one supplier, never both)
+* Centralized directory of trading partners
+* Live-calculated account balances (receivable / payable)
+* Full transaction history per party
 
-Payments
-  - Record partial or full payments against any invoice
-  - Built-in overpayment protection
-  - Real-time recalculation of outstanding balances
+### Invoicing
 
-Returns
-  - Process customer returns and supplier returns independently
-  - Automatic reversal of stock movements and balances
-  - Full traceability back to the originating invoice
-  - Quantity validation against original invoice lines
+* Dual invoice types: Sales (to customers) and Purchases
+  (from suppliers)
+* Multi-line invoices with per-item quantity and pricing
+* Automatic, transactional stock and balance adjustment on save
+* Enforced data integrity (an invoice must belong to exactly one
+  customer or one supplier, never both)
 
-Expense Tracking
-  - Record and categorize operating expenses independent of
-    inventory transactions
+### Payments
 
-Stock Movement Ledger
-  - Immutable, fully auditable log of every inventory movement,
-    its cause, and its source document
-  - System-generated only, never directly editable by users
+* Record partial or full payments against any invoice
+* Built-in overpayment protection
+* Real-time recalculation of outstanding balances
 
-Executive Dashboard
-  - Real-time snapshot of business health: daily sales, inventory
-    valuation, low-stock warnings, and total receivables
+### Returns
 
+* Process customer returns and supplier returns independently
+* Automatic reversal of stock movements and balances
+* Full traceability back to the originating invoice
+* Quantity validation against original invoice lines
 
-3. SYSTEM ARCHITECTURE
-------------------------
+### Expense Tracking
 
+* Record and categorize operating expenses independent of
+  inventory transactions
+
+### Stock Movement Ledger
+
+* Immutable, fully auditable log of every inventory movement,
+  its cause, and its source document
+* System-generated only, never directly editable by users
+
+### Executive Dashboard
+
+* Real-time snapshot of business health: daily sales, inventory
+  valuation, low-stock warnings, and total receivables
+
+## 3. SYSTEM ARCHITECTURE
+
+```text
   Frontend (SPA)                          Backend API
   React + Vite + TS   -- HTTPS/REST -->    NestJS + Prisma
                        <-- JSON --
@@ -94,59 +98,59 @@ Executive Dashboard
                                                 | Prisma ORM
                                                 v
                                           SQLite Database
+```
 
 The backend exposes a versioned REST API consumed by a decoupled
 single-page frontend application. All business logic, validation,
 and data integrity rules are enforced server-side, ensuring the
 system remains consistent regardless of which client accesses it.
 
+## 4. DESIGN PRINCIPLES
 
-4. DESIGN PRINCIPLES
-----------------------
+### Compute-on-Read, Never Cache
 
-Compute-on-Read, Never Cache
-  All financial figures (invoice totals, amounts paid, return
-  values, party balances) are calculated live from underlying
-  transactional data on every request. Nothing is pre-computed or
-  cached, eliminating any possibility of figures drifting out of
-  sync with reality.
+All financial figures (invoice totals, amounts paid, return
+values, party balances) are calculated live from underlying
+transactional data on every request. Nothing is pre-computed or
+cached, eliminating any possibility of figures drifting out of
+sync with reality.
 
-Immutable Financial History
-  Once an invoice has recorded activity (line items, payments, or
-  stock movements), it cannot be deleted. This mirrors standard
-  accounting practice, where financial records are voided or
-  reversed rather than erased, preserving a complete and honest
-  audit trail.
+### Immutable Financial History
 
-System-Owned Automation
-  Certain records, most notably stock movements, can never be
-  created or modified directly by a user. They exist solely as the
-  automatic, provable consequence of a legitimate business
-  transaction (an invoice or a return), guaranteeing the inventory
-  ledger can always be trusted.
+Once an invoice has recorded activity (line items, payments, or
+stock movements), it cannot be deleted. This mirrors standard
+accounting practice, where financial records are voided or
+reversed rather than erased, preserving a complete and honest
+audit trail.
 
-Referential Integrity by Design
-  Every relationship in the data model enforces strict rules: an
-  invoice belongs to exactly one party, a return must reference a
-  valid original invoice, and quantities returned can never exceed
-  quantities originally transacted.
+### System-Owned Automation
 
+Certain records, most notably stock movements, can never be
+created or modified directly by a user. They exist solely as the
+automatic, provable consequence of a legitimate business
+transaction (an invoice or a return), guaranteeing the inventory
+ledger can always be trusted.
 
-5. TECHNOLOGY STACK
----------------------
+### Referential Integrity by Design
 
-  Layer            | Technology
-  -----------------|--------------------------------
-  Frontend         | React, TypeScript, Vite
-  Backend          | NestJS (Node.js, TypeScript)
-  ORM              | Prisma
-  Database         | SQLite
-  API Style        | RESTful JSON API
+Every relationship in the data model enforces strict rules: an
+invoice belongs to exactly one party, a return must reference a
+valid original invoice, and quantities returned can never exceed
+quantities originally transacted.
 
+## 5. TECHNOLOGY STACK
 
-6. DATA MODEL SUMMARY
------------------------
+| Layer     | Technology                   |
+| --------- | ---------------------------- |
+| Frontend  | React, TypeScript, Vite      |
+| Backend   | NestJS (Node.js, TypeScript) |
+| ORM       | Prisma                       |
+| Database  | SQLite                       |
+| API Style | RESTful JSON API             |
 
+## 6. DATA MODEL SUMMARY
+
+```text
   Item             <--  Invoice_Terms   -->  Invoice
   Item             <--  Return_Items    -->  Return
   Invoice          <--  Payments
@@ -154,77 +158,94 @@ Referential Integrity by Design
   Invoice / Return <--  Stock_Movement  (exactly one source per record)
   Customer         <--  Invoices (sale) / Returns
   Supplier         <--  Invoices (purchase) / Returns
+```
 
 Balances for Customers and Suppliers, and totals for Invoices and
 Returns, are derived attributes, computed from these relationships
 rather than stored directly.
 
+## 7. GETTING STARTED
 
-7. GETTING STARTED
---------------------
+### Prerequisites
 
-Prerequisites
-  - Node.js 18 or later
-  - npm
-  - Git
+* Node.js 18 or later
+* npm
+* Git
 
-Backend Setup
+### Backend Setup
 
-  cd invoice-system
-  npm install
+```bash
+cd invoice-system
+npm install
+```
 
-  Create a .env file:
-    DATABASE_URL="file:./dev.db"
-    PORT=3000
+Create a .env file:
 
-  npx prisma generate
-  npx prisma migrate dev
-  npm run start:dev
+```env
+DATABASE_URL="file:./dev.db"
+PORT=3000
+```
 
-  The API will be available at:
-    http://localhost:3000/api
+```bash
+npx prisma generate
+npx prisma migrate dev
+npm run start:dev
+```
 
-Frontend Setup
+The API will be available at:
 
-  cd invoice-system-ui
-  npm install
+```text
+http://localhost:3000/api
+```
 
-  Create a .env file:
-    VITE_API_BASE_URL=http://localhost:3000/api
+### Frontend Setup
 
-  npm run dev
+```bash
+cd invoice-system-ui
+npm install
+```
 
-  The application will be available at:
-    http://localhost:5173
+Create a .env file:
 
-  Note: the backend must be running before starting the frontend.
+```env
+VITE_API_BASE_URL=http://localhost:3000/api
+```
 
+```bash
+npm run dev
+```
 
-8. API REFERENCE
-------------------
+The application will be available at:
+
+```text
+http://localhost:5173
+```
+
+Note: the backend must be running before starting the frontend.
+
+## 8. API REFERENCE
 
 Base URL: /api
 
-  Resource          | Endpoints
-  ------------------|--------------------------------------------
-  Items             | GET, POST, PUT, DELETE /items
-  Customers         | GET, POST, PUT, DELETE /customers
-  Suppliers         | GET, POST, PUT, DELETE /suppliers
-  Invoices          | GET, POST /invoices
-  Payments          | GET, POST, PUT, DELETE /payments
-  Returns           | GET, POST /returns
-  Expenses          | GET, POST, PUT, DELETE /expenses
-  Stock Movements   | GET /stock-movements (read-only)
-  Dashboard         | GET /dashboard/summary
+| Resource        | Endpoints                         |
+| --------------- | --------------------------------- |
+| Items           | GET, POST, PUT, DELETE /items     |
+| Customers       | GET, POST, PUT, DELETE /customers |
+| Suppliers       | GET, POST, PUT, DELETE /suppliers |
+| Invoices        | GET, POST /invoices               |
+| Payments        | GET, POST, PUT, DELETE /payments  |
+| Returns         | GET, POST /returns                |
+| Expenses        | GET, POST, PUT, DELETE /expenses  |
+| Stock Movements | GET /stock-movements (read-only)  |
+| Dashboard       | GET /dashboard/summary            |
 
 A complete Postman collection documenting every endpoint, request
 shape, and expected response is included for full API exploration
 and testing.
 
+## 9. PROJECT STRUCTURE
 
-9. PROJECT STRUCTURE
-----------------------
-
+```text
   Inventory-management-system/
   |-- invoice-system/          Backend application (NestJS + Prisma)
   |     |-- src/                Feature modules, controllers, services
@@ -232,10 +253,9 @@ and testing.
   |
   |-- invoice-system-ui/       Frontend application (React + Vite)
         |-- src/                 Pages, components, and API client
+```
 
+## 10. CONTRIBUTORS
 
-10. CONTRIBUTORS
-------------------
-
-  Eyad   - Full-stack development
-  Karim  - Full-stack development
+* Eyad   - Full-stack development
+* Karim  - Full-stack development
