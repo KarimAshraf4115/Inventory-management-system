@@ -1,0 +1,7 @@
+node_modules
+dist
+*.tsbuildinfo
+src/generated
+.env
+dev.db
+.git
